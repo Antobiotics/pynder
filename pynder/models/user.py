@@ -15,11 +15,15 @@ class User(object):
     def __init__(self, data, session):
         self._session = session
         self._data = data
+        print data
         self.id = data['_id']
 
         SIMPLE_FIELDS = ("name", "bio", "birth_date", "ping_time")
         for f in SIMPLE_FIELDS:
-            setattr(self, f, data[f])
+            try:
+                setattr(self, f, data[f])
+            except KeyError:
+                pass
 
         self.photos_obj = [p for p in data['photos']]
         self.birth_date = dateutil.parser.parse(self.birth_date)
@@ -28,8 +32,8 @@ class User(object):
         self.schools_id = []
         self.jobs = []
         try:
-            self.schools.extend([school["name"] for school in data['schools']])
-            self.schools_id.extend([school["id"] for school in data['schools']])
+            # self.schools.extend([school["name"] for school in data['schools']])
+            # self.schools_id.extend([school["id"] for school in data['schools']])
             self.jobs.extend(["%s @ %s" % (job["title"]["name"], job["company"][
                              "name"]) for job in data['jobs'] if 'title' in job and 'company' in job])
             self.jobs.extend(["%s" % (job["company"]["name"],) for job in data[
@@ -40,17 +44,27 @@ class User(object):
             pass
 
     def to_csv(self):
-        return ','.join(str(f) for f in[
+        bio = ""
+        try:
+            bio = (
+                unicode(self.bio)
+                .encode('utf-8')
+                .replace(',', '')
+                .replace('\n', '')
+                .replace('"', '')
+                .replace("'", '')
+                .replace('%', '')
+            )
+        except Exception:
+            pass
+
+        return ','.join(str(f) for f in [
             self.id,
             unicode(self.name).encode('utf-8'),
             self.age,
-            quote_str(unicode(self.bio)
-                      .encode('utf-8')
-                      .replace(',', '')
-                      .replace('\n', '')
-                      .replace('%', '')),
-            self.birth_date,
-            self.ping_time,
+            quote_str(bio),
+            self.birth_date.isoformat(),
+            self.ping_time.isoformat(),
             self.instagram_username,
             self.gender,
             '|'.join(self.common_likes).replace(',', ''),
@@ -162,7 +176,12 @@ class Match(object):
 
         self.id = match["_id"]
         self.created_date = dateutil.parser.parse(match['created_date'])
-        self.dead = match['dead']
+        self.dead = ""
+        try:
+            self.dead = match['dead']
+        except KeyError:
+            pass
+
         self.last_activity_date = dateutil.parser.parse(match['last_activity_date'])
         self.message_count = match['message_count']
 
@@ -190,13 +209,13 @@ class Match(object):
             'id', 'created_date',
             'dead', 'last_activity_date',
             'message_count'
-        ]) + self.user.csv_header
+        ]) + ',' + self.user.csv_header
 
     def to_csv(self):
         return ','.join(str(f) for f in [
             self.id,
-            self.created_date,
+            self.created_date.isoformat(),
             self.dead,
-            self.last_activity_date,
+            self.last_activity_date.isoformat(),
             self.message_count
-        ]) + self.user.to_csv()
+        ]) + ',' + self.user.to_csv()
